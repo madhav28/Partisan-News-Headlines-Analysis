@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(layout="wide")
 
@@ -14,7 +14,7 @@ st.dataframe(df, use_container_width=True)
 
 st.markdown("----")
 
-st.markdown("### Prominent Terms Overtime")
+st.markdown("### Topics Evolution")
 
 col1, col2 = st.columns([1, 3])
 
@@ -25,7 +25,7 @@ with col1:
     options = st.multiselect(
         'Select one or more topics',
         multiselect_options,
-        ['Racist Towards White People'])
+        ['2022 Midterm Elections'])
 
 with col2:
     df = pd.read_csv("dynamic_model.csv")
@@ -42,31 +42,38 @@ with col2:
 
     filtered_df.reset_index(drop=True, inplace=True)
 
-    fig = px.line(grouped_df,
-                  x='Date',
-                  y='Frequency',
-                  color='Label',
-                  title='Frequency vs Date by Topic',
-                  hover_data={'Terms': True},
-                  labels={'Frequency': 'Frequency',
-                          'Date': 'Date', 'Topic': 'Topic'},
-                  line_shape='linear',
-                  width=1200,
-                  height=600)
+    fig = go.Figure()
 
-    fig.add_trace(px.scatter(filtered_df,
-                             x='Date',
-                             y='Frequency',
-                             text='Terms').data[0])
+    for label, data in grouped_df.groupby('Label'):
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Frequency'], mode='lines',
+                                name=label, hoverinfo='text',
+                                hovertext=data.apply(lambda row: f"Date: {row['Date'].strftime('%Y-%m-%d')}<br>Frequency: {row['Frequency']}<br>Terms: {row['Terms']}", axis=1)))
+
+    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Frequency'], mode='markers',
+                            hoverinfo='text',
+                            hovertext=filtered_df.apply(lambda row: f"Date: {row['Date'].strftime('%Y-%m-%d')}<br>Frequency: {row['Frequency']}<br>Terms: {row['Terms']}", axis=1),
+                            marker=dict(symbol='square', size=10),
+                            showlegend=False))
+
+    x_anchors = ['right', 'left']
+    y_anchors = ['bottom', 'top']
+    annotations = [dict(x=x, y=y, text=text, xanchor=x_anchors[i % len(x_anchors)], yanchor=y_anchors[i % len(y_anchors)], showarrow=False, font=dict(size=16))
+                   for i, (x, y, text) in enumerate(zip(filtered_df['Date'], filtered_df['Frequency'], filtered_df['Terms']))]
+
+    fig.update_layout(annotations=annotations)
 
     fig.update_layout(
-        title=dict(text="Prominent Terms Overtime",
-                   font=dict(size=24, color="black")),
-        xaxis=dict(title='Date',
-                   title_font=dict(size=20, color='black')),
-        yaxis=dict(title='Frequency',
-                   title_font=dict(size=20, color='black')),
-        font=dict(size=16, color='black')
+        title="Prominent Terms Overtime",
+        xaxis=dict(title='Date', tickformat="%b %Y"),
+        yaxis=dict(title='Frequency'),
+        legend=dict(title='Topic'),
+        font=dict(size=16, color='black'),
+        width=1200,
+        height=600
     )
 
+    fig.update_layout(title_font=dict(size=28, color="black"))
+    fig.update_xaxes(title_font=dict(size=24, color='black'), tickfont=dict(size=16, color='black'))
+    fig.update_yaxes(title_font=dict(size=24, color='black'))
+    fig.update_layout(legend_title_font=dict(size=16, color='black'), legend_font=dict(size=16, color='black'))
     st.plotly_chart(fig)
